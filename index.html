@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TITAN 云端管理后台</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡</text></svg>">
+<link rel="manifest" href='data:application/manifest+json,{"name":"TITAN云端管理后台","short_name":"TITAN后台","display":"standalone","icons":[]}'>
+<style>
+:root{--bg:#0b0f17;--panel:#121826;--panel2:#0f1521;--line:#202a3c;--txt:#d7e0ee;--mut:#7d8aa3;--red:#e5484d;--grn:#3fa66e;--amber:#d9a441;--blue:#4c86d6;--accent:#e5484d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif;font-size:14px}
+.app{display:flex;min-height:100vh}
+.side{width:200px;background:var(--panel2);border-right:1px solid var(--line);padding:16px 10px;flex-shrink:0}
+.brand{font-weight:700;font-size:16px;padding:6px 10px 16px;color:#fff;letter-spacing:1px}
+.brand small{display:block;color:var(--mut);font-weight:400;font-size:11px;margin-top:2px}
+.nav button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--mut);padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:2px;font-size:14px}
+.nav button:hover{background:var(--panel);color:var(--txt)}
+.nav button.on{background:var(--accent);color:#fff}
+.main{flex:1;min-width:0;padding:20px 24px}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.hdr h2{margin:0;font-size:18px}
+.who{color:var(--mut);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:600;position:sticky;top:0;background:var(--panel)}
+tbody tr:hover{background:var(--panel2)}
+.tbl-wrap{overflow:auto;max-height:60vh}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat-card .num{font-size:24px;font-weight:700;margin-top:4px}
+.stat-card .lbl{color:var(--mut);font-size:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;font-weight:600}
+.b-on{background:rgba(63,166,110,.18);color:var(--grn)}
+.b-off{background:rgba(125,138,163,.18);color:var(--mut)}
+.b-stopped{background:rgba(229,72,77,.18);color:var(--red)}
+.b-frozen{background:rgba(217,164,65,.18);color:var(--amber)}
+.b-crit{background:rgba(229,72,77,.18);color:var(--red)}
+.b-warn{background:rgba(217,164,65,.18);color:var(--amber)}
+.b-info{background:rgba(76,134,214,.18);color:var(--blue)}
+.b-disabled{background:rgba(125,138,163,.25);color:var(--mut)}
+button.btn{border:1px solid var(--line);background:var(--panel2);color:var(--txt);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+button.btn:hover{border-color:var(--mut)}
+button.btn.red{background:var(--red);border-color:var(--red);color:#fff}
+button.btn.grn{background:var(--grn);border-color:var(--grn);color:#fff}
+button.btn.amber{background:var(--amber);border-color:var(--amber);color:#1a1a1a}
+button.btn.sm{padding:4px 8px;font-size:12px;margin:1px}
+input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit}
+label{display:block;color:var(--mut);margin:10px 0 5px;font-size:13px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row>.f{flex:1;min-width:120px}
+.ops{display:flex;gap:5px;flex-wrap:wrap}
+.login-wrap{max-width:420px;margin:7vh auto}
+.muted{color:var(--mut)}.center{text-align:center}.mt{margin-top:14px}
+.toast{position:fixed;right:20px;bottom:20px;background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);padding:12px 16px;border-radius:10px;max-width:360px;display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.toast.err{border-left-color:var(--red)}
+.toast.ok{border-left-color:var(--grn)}
+.codebox{font-family:Consolas,monospace;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto;font-size:12px}
+.checkbox{width:auto;display:inline-block;margin-right:6px}
+@media(max-width:760px){.app{flex-direction:column}.side{width:100%;padding:8px}.brand{padding:4px 8px}.nav{display:flex}.nav button{width:auto;white-space:nowrap}.main{padding:14px}th,td{padding:7px 6px}}
+</style>
+</head>
+<body>
+<div class="app" id="app" style="display:none">
+  <aside class="side">
+    <div class="brand">TITAN 云端后台<small>设备监控与分级授权</small></div>
+    <nav class="nav" id="nav">
+      <button data-page="dashboard" data-admin="1">数据报表</button>
+      <button data-page="devices" class="on">设备监控</button>
+      <button data-page="security">安全事件</button>
+      <button data-page="codes">卡密管理</button>
+      <button data-page="customers">客户管理</button>
+      <button data-page="dealers" data-admin="1">经销商管理</button>
+      <button data-page="audit">审计日志</button>
+      <button data-page="settings">设置</button>
+    </nav>
+  </aside>
+  <main class="main">
+    <div class="hdr"><h2 id="pageTitle">设备监控</h2>
+      <div class="who"><span id="whoEmail"></span> <button class="btn sm" onclick="doLogout()">退出登录</button></div>
+    </div>
+    <div id="pageBody"></div>
+  </main>
+</div>
+
+<div class="login-wrap" id="loginWrap">
+  <div class="card">
+    <div class="center" style="font-size:26px">🛡</div>
+    <h2 class="center" style="margin:6px 0 18px">TITAN 云端管理后台</h2>
+    <label>邮箱</label><input id="liEmail" type="email" placeholder="管理员/代理邮箱">
+    <label>密码</label><input id="liPass" type="password" placeholder="登录密码">
+    <button class="btn red mt" style="width:100%" onclick="doLogin()">登录</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+!function(i){"use strict";var m=function(r,n){this.hi=0|r,this.lo=0|n},v=function(r){var n,e=new Float64Array(16);if(r)for(n=0;n<r.length;n++)e[n]=r[n];return e},a=function(){throw new Error("no PRNG")},o=new Uint8Array(16),e=new Uint8Array(32);e[0]=9;var c=v(),w=v([1]),g=v([56129,1]),y=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),l=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),t=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),f=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),s=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function h(r,n){return r<<n|r>>>32-n}function b(r,n){var e=255&r[n+3];return(e=(e=e<<8|255&r[n+2])<<8|255&r[n+1])<<8|255&r[n+0]}function B(r,n){var e=r[n]<<24|r[n+1]<<16|r[n+2]<<8|r[n+3],t=r[n+4]<<24|r[n+5]<<16|r[n+6]<<8|r[n+7];return new m(e,t)}function p(r,n,e){var t;for(t=0;t<4;t++)r[n+t]=255&e,e>>>=8}function S(r,n,e){r[n]=e.hi>>24&255,r[n+1]=e.hi>>16&255,r[n+2]=e.hi>>8&255,r[n+3]=255&e.hi,r[n+4]=e.lo>>24&255,r[n+5]=e.lo>>16&255,r[n+6]=e.lo>>8&255,r[n+7]=255&e.lo}function u(r,n,e,t,o){var i,a=0;for(i=0;i<o;i++)a|=r[n+i]^e[t+i];return(1&a-1>>>8)-1}function A(r,n,e,t){return u(r,n,e,t,16)}function _(r,n,e,t){return u(r,n,e,t,32)}function U(r,n,e,t,o){var i,a,f,u=new Uint32Array(16),c=new Uint32Array(16),w=new Uint32Array(16),y=new Uint32Array(4);for(i=0;i<4;i++)c[5*i]=b(t,4*i),c[1+i]=b(e,4*i),c[6+i]=b(n,4*i),c[11+i]=b(e,16+4*i);for(i=0;i<16;i++)w[i]=c[i];for(i=0;i<20;i++){for(a=0;a<4;a++){for(f=0;f<4;f++)y[f]=c[(5*a+4*f)%16];for(y[1]^=h(y[0]+y[3]|0,7),y[2]^=h(y[1]+y[0]|0,9),y[3]^=h(y[2]+y[1]|0,13),y[0]^=h(y[3]+y[2]|0,18),f=0;f<4;f++)u[4*a+(a+f)%4]=y[f]}for(f=0;f<16;f++)c[f]=u[f]}if(o){for(i=0;i<16;i++)c[i]=c[i]+w[i]|0;for(i=0;i<4;i++)c[5*i]=c[5*i]-b(t,4*i)|0,c[6+i]=c[6+i]-b(n,4*i)|0;for(i=0;i<4;i++)p(r,4*i,c[5*i]),p(r,16+4*i,c[6+i])}else for(i=0;i<16;i++)p(r,4*i,c[i]+w[i]|0)}function E(r,n,e,t){U(r,n,e,t,!1)}function x(r,n,e,t){return U(r,n,e,t,!0),0}var d=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function K(r,n,e,t,o,i,a){var f,u,c=new Uint8Array(16),w=new Uint8Array(64);if(!o)return 0;for(u=0;u<16;u++)c[u]=0;for(u=0;u<8;u++)c[u]=i[u];for(;64<=o;){for(E(w,c,a,d),u=0;u<64;u++)r[n+u]=(e?e[t+u]:0)^w[u];for(f=1,u=8;u<16;u++)f=f+(255&c[u])|0,c[u]=255&f,f>>>=8;o-=64,n+=64,e&&(t+=64)}if(0<o)for(E(w,c,a,d),u=0;u<o;u++)r[n+u]=(e?e[t+u]:0)^w[u];return 0}function Y(r,n,e,t,o){return K(r,n,null,0,e,t,o)}function L(r,n,e,t,o){var i=new Uint8Array(32);return x(i,t,o,d),Y(r,n,e,t.subarray(16),i)}function T(r,n,e,t,o,i,a){var f=new Uint8Array(32);return x(f,i,a,d),K(r,n,e,t,o,i.subarray(16),f)}function k(r,n){var e,t=0;for(e=0;e<17;e++)t=t+(r[e]+n[e]|0)|0,r[e]=255&t,t>>>=8}var z=new Uint32Array([5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,252]);function R(r,n,e,t,o,i){var a,f,u,c,w=new Uint32Array(17),y=new Uint32Array(17),l=new Uint32Array(17),s=new Uint32Array(17),h=new Uint32Array(17);for(u=0;u<17;u++)y[u]=l[u]=0;for(u=0;u<16;u++)y[u]=i[u];for(y[3]&=15,y[4]&=252,y[7]&=15,y[8]&=252,y[11]&=15,y[12]&=252,y[15]&=15;0<o;){for(u=0;u<17;u++)s[u]=0;for(u=0;u<16&&u<o;++u)s[u]=e[t+u];for(s[u]=1,t+=u,o-=u,k(l,s),f=0;f<17;f++)for(u=w[f]=0;u<17;u++)w[f]=w[f]+l[u]*(u<=f?y[f-u]:320*y[f+17-u]|0)|0;for(f=0;f<17;f++)l[f]=w[f];for(u=c=0;u<16;u++)c=c+l[u]|0,l[u]=255&c,c>>>=8;for(c=c+l[16]|0,l[16]=3&c,c=5*(c>>>2)|0,u=0;u<16;u++)c=c+l[u]|0,l[u]=255&c,c>>>=8;c=c+l[16]|0,l[16]=c}for(u=0;u<17;u++)h[u]=l[u];for(k(l,z),a=0|-(l[16]>>>7),u=0;u<17;u++)l[u]^=a&(h[u]^l[u]);for(u=0;u<16;u++)s[u]=i[u+16];for(s[16]=0,k(l,s),u=0;u<16;u++)r[n+u]=l[u];return 0}function P(r,n,e,t,o,i){var a=new Uint8Array(16);return R(a,0,e,t,o,i),A(r,n,a,0)}function M(r,n,e,t,o){var i;if(e<32)return-1;for(T(r,0,n,0,e,t,o),R(r,16,r,32,e-32,r),i=0;i<16;i++)r[i]=0;return 0}function N(r,n,e,t,o){var i,a=new Uint8Array(32);if(e<32)return-1;if(L(a,0,32,t,o),0!==P(n,16,n,32,e-32,a))return-1;for(T(r,0,n,0,e,t,o),i=0;i<32;i++)r[i]=0;return 0}function O(r,n){var e;for(e=0;e<16;e++)r[e]=0|n[e]}function C(r){var n,e;for(e=0;e<16;e++)r[e]+=65536,n=Math.floor(r[e]/65536),r[(e+1)*(e<15?1:0)]+=n-1+37*(n-1)*(15===e?1:0),r[e]-=65536*n}function F(r,n,e){for(var t,o=~(e-1),i=0;i<16;i++)t=o&(r[i]^n[i]),r[i]^=t,n[i]^=t}function Z(r,n){var e,t,o,i=v(),a=v();for(e=0;e<16;e++)a[e]=n[e];for(C(a),C(a),C(a),t=0;t<2;t++){for(i[0]=a[0]-65517,e=1;e<15;e++)i[e]=a[e]-65535-(i[e-1]>>16&1),i[e-1]&=65535;i[15]=a[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,F(a,i,1-o)}for(e=0;e<16;e++)r[2*e]=255&a[e],r[2*e+1]=a[e]>>8}function G(r,n){var e=new Uint8Array(32),t=new Uint8Array(32);return Z(e,r),Z(t,n),_(e,0,t,0)}function q(r){var n=new Uint8Array(32);return Z(n,r),1&n[0]}function D(r,n){var e;for(e=0;e<16;e++)r[e]=n[2*e]+(n[2*e+1]<<8);r[15]&=32767}function I(r,n,e){var t;for(t=0;t<16;t++)r[t]=n[t]+e[t]|0}function V(r,n,e){var t;for(t=0;t<16;t++)r[t]=n[t]-e[t]|0}function X(r,n,e){var t,o,i=new Float64Array(31);for(t=0;t<31;t++)i[t]=0;for(t=0;t<16;t++)for(o=0;o<16;o++)i[t+o]+=n[t]*e[o];for(t=0;t<15;t++)i[t]+=38*i[t+16];for(t=0;t<16;t++)r[t]=i[t];C(r),C(r)}function j(r,n){X(r,n,n)}function H(r,n){var e,t=v();for(e=0;e<16;e++)t[e]=n[e];for(e=253;0<=e;e--)j(t,t),2!==e&&4!==e&&X(t,t,n);for(e=0;e<16;e++)r[e]=t[e]}function J(r,n){var e,t=v();for(e=0;e<16;e++)t[e]=n[e];for(e=250;0<=e;e--)j(t,t),1!==e&&X(t,t,n);for(e=0;e<16;e++)r[e]=t[e]}function Q(r,n,e){var t,o,i=new Uint8Array(32),a=new Float64Array(80),f=v(),u=v(),c=v(),w=v(),y=v(),l=v();for(o=0;o<31;o++)i[o]=n[o];for(i[31]=127&n[31]|64,i[0]&=248,D(a,e),o=0;o<16;o++)u[o]=a[o],w[o]=f[o]=c[o]=0;for(f[0]=w[0]=1,o=254;0<=o;--o)F(f,u,t=i[o>>>3]>>>(7&o)&1),F(c,w,t),I(y,f,c),V(f,f,c),I(c,u,w),V(u,u,w),j(w,y),j(l,f),X(f,c,f),X(c,u,y),I(y,f,c),V(f,f,c),j(u,f),V(c,w,l),X(f,c,g),I(f,f,w),X(c,c,f),X(f,w,l),X(w,u,a),j(u,y),F(f,u,t),F(c,w,t);for(o=0;o<16;o++)a[o+16]=f[o],a[o+32]=c[o],a[o+48]=u[o],a[o+64]=w[o];var s=a.subarray(32),h=a.subarray(16);return H(s,s),X(h,h,s),Z(r,h),0}function W(r,n){return Q(r,n,e)}function $(r,n){return a(n,32),W(r,n)}function rr(r,n,e){var t=new Uint8Array(32);return Q(t,e,n),x(r,o,t,d)}var nr=M,er=N;function tr(){var r,n,e,t=0,o=0,i=0,a=0,f=65535;for(e=0;e<arguments.length;e++)t+=(r=arguments[e].lo)&f,o+=r>>>16,i+=(n=arguments[e].hi)&f,a+=n>>>16;return new m((i+=(o+=t>>>16)>>>16)&f|(a+=i>>>16)<<16,t&f|o<<16)}function or(r,n){return new m(r.hi>>>n,r.lo>>>n|r.hi<<32-n)}function ir(){var r,n=0,e=0;for(r=0;r<arguments.length;r++)n^=arguments[r].lo,e^=arguments[r].hi;return new m(e,n)}function ar(r,n){var e,t,o=32-n;return n<32?(e=r.hi>>>n|r.lo<<o,t=r.lo>>>n|r.hi<<o):n<64&&(e=r.lo>>>n|r.hi<<o,t=r.hi>>>n|r.lo<<o),new m(e,t)}var fr=[new m(1116352408,3609767458),new m(1899447441,602891725),new m(3049323471,3964484399),new m(3921009573,2173295548),new m(961987163,4081628472),new m(1508970993,3053834265),new m(2453635748,2937671579),new m(2870763221,3664609560),new m(3624381080,2734883394),new m(310598401,1164996542),new m(607225278,1323610764),new m(1426881987,3590304994),new m(1925078388,4068182383),new m(2162078206,991336113),new m(2614888103,633803317),new m(3248222580,3479774868),new m(3835390401,2666613458),new m(4022224774,944711139),new m(264347078,2341262773),new m(604807628,2007800933),new m(770255983,1495990901),new m(1249150122,1856431235),new m(1555081692,3175218132),new m(1996064986,2198950837),new m(2554220882,3999719339),new m(2821834349,766784016),new m(2952996808,2566594879),new m(3210313671,3203337956),new m(3336571891,1034457026),new m(3584528711,2466948901),new m(113926993,3758326383),new m(338241895,168717936),new m(666307205,1188179964),new m(773529912,1546045734),new m(1294757372,1522805485),new m(1396182291,2643833823),new m(1695183700,2343527390),new m(1986661051,1014477480),new m(2177026350,1206759142),new m(2456956037,344077627),new m(2730485921,1290863460),new m(2820302411,3158454273),new m(3259730800,3505952657),new m(3345764771,106217008),new m(3516065817,3606008344),new m(3600352804,1432725776),new m(4094571909,1467031594),new m(275423344,851169720),new m(430227734,3100823752),new m(506948616,1363258195),new m(659060556,3750685593),new m(883997877,3785050280),new m(958139571,3318307427),new m(1322822218,3812723403),new m(1537002063,2003034995),new m(1747873779,3602036899),new m(1955562222,1575990012),new m(2024104815,1125592928),new m(2227730452,2716904306),new m(2361852424,442776044),new m(2428436474,593698344),new m(2756734187,3733110249),new m(3204031479,2999351573),new m(3329325298,3815920427),new m(3391569614,3928383900),new m(3515267271,566280711),new m(3940187606,3454069534),new m(4118630271,4000239992),new m(116418474,1914138554),new m(174292421,2731055270),new m(289380356,3203993006),new m(460393269,320620315),new m(685471733,587496836),new m(852142971,1086792851),new m(1017036298,365543100),new m(1126000580,2618297676),new m(1288033470,3409855158),new m(1501505948,4234509866),new m(1607167915,987167468),new m(1816402316,1246189591)];function ur(r,n,e){var t,o,i,a=[],f=[],u=[],c=[];for(o=0;o<8;o++)a[o]=u[o]=B(r,8*o);for(var w,y,l,s,h,v,g,b,p,A,_,U,E,x,d=0;128<=e;){for(o=0;o<16;o++)c[o]=B(n,8*o+d);for(o=0;o<80;o++){for(i=0;i<8;i++)f[i]=u[i];for(t=tr(u[7],ir(ar(x=u[4],14),ar(x,18),ar(x,41)),(p=u[4],A=u[5],_=u[6],0,U=p.hi&A.hi^~p.hi&_.hi,E=p.lo&A.lo^~p.lo&_.lo,new m(U,E)),fr[o],c[o%16]),f[7]=tr(t,ir(ar(b=u[0],28),ar(b,34),ar(b,39)),(l=u[0],s=u[1],h=u[2],0,v=l.hi&s.hi^l.hi&h.hi^s.hi&h.hi,g=l.lo&s.lo^l.lo&h.lo^s.lo&h.lo,new m(v,g))),f[3]=tr(f[3],t),i=0;i<8;i++)u[(i+1)%8]=f[i];if(o%16==15)for(i=0;i<16;i++)c[i]=tr(c[i],c[(i+9)%16],ir(ar(y=c[(i+1)%16],1),ar(y,8),or(y,7)),ir(ar(w=c[(i+14)%16],19),ar(w,61),or(w,6)))}for(o=0;o<8;o++)u[o]=tr(u[o],a[o]),a[o]=u[o];d+=128,e-=128}for(o=0;o<8;o++)S(r,8*o,a[o]);return e}var cr=new Uint8Array([106,9,230,103,243,188,201,8,187,103,174,133,132,202,167,59,60,110,243,114,254,148,248,43,165,79,245,58,95,29,54,241,81,14,82,127,173,230,130,209,155,5,104,140,43,62,108,31,31,131,217,171,251,65,189,107,91,224,205,25,19,126,33,121]);function wr(r,n,e){var t,o=new Uint8Array(64),i=new Uint8Array(256),a=e;for(t=0;t<64;t++)o[t]=cr[t];for(ur(o,n,e),e%=128,t=0;t<256;t++)i[t]=0;for(t=0;t<e;t++)i[t]=n[a-e+t];for(i[e]=128,i[(e=256-128*(e<112?1:0))-9]=0,S(i,e-8,new m(a/536870912|0,a<<3)),ur(o,i,e),t=0;t<64;t++)r[t]=o[t];return 0}function yr(r,n){var e=v(),t=v(),o=v(),i=v(),a=v(),f=v(),u=v(),c=v(),w=v();V(e,r[1],r[0]),V(w,n[1],n[0]),X(e,e,w),I(t,r[0],r[1]),I(w,n[0],n[1]),X(t,t,w),X(o,r[3],n[3]),X(o,o,l),X(i,r[2],n[2]),I(i,i,i),V(a,t,e),V(f,i,o),I(u,i,o),I(c,t,e),X(r[0],a,f),X(r[1],c,u),X(r[2],u,f),X(r[3],a,c)}function lr(r,n,e){var t;for(t=0;t<4;t++)F(r[t],n[t],e)}function sr(r,n){var e=v(),t=v(),o=v();H(o,n[2]),X(e,n[0],o),X(t,n[1],o),Z(r,t),r[31]^=q(e)<<7}function hr(r,n,e){var t,o;for(O(r[0],c),O(r[1],w),O(r[2],w),O(r[3],c),o=255;0<=o;--o)lr(r,n,t=e[o/8|0]>>(7&o)&1),yr(n,r),yr(r,r),lr(r,n,t)}function vr(r,n){var e=[v(),v(),v(),v()];O(e[0],t),O(e[1],f),O(e[2],w),X(e[3],t,f),hr(r,e,n)}function gr(r,n,e){var t,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(e||a(n,32),wr(o,n,32),o[0]&=248,o[31]&=127,o[31]|=64,vr(i,o),sr(r,i),t=0;t<32;t++)n[t+32]=r[t];return 0}var br=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function pr(r,n){var e,t,o,i;for(t=63;32<=t;--t){for(e=0,o=t-32,i=t-12;o<i;++o)n[o]+=e-16*n[t]*br[o-(t-32)],e=Math.floor((n[o]+128)/256),n[o]-=256*e;n[o]+=e,n[t]=0}for(o=e=0;o<32;o++)n[o]+=e-(n[31]>>4)*br[o],e=n[o]>>8,n[o]&=255;for(o=0;o<32;o++)n[o]-=e*br[o];for(t=0;t<32;t++)n[t+1]+=n[t]>>8,r[t]=255&n[t]}function Ar(r){var n,e=new Float64Array(64);for(n=0;n<64;n++)e[n]=r[n];for(n=0;n<64;n++)r[n]=0;pr(r,e)}function _r(r,n,e,t){var o,i,a=new Uint8Array(64),f=new Uint8Array(64),u=new Uint8Array(64),c=new Float64Array(64),w=[v(),v(),v(),v()];wr(a,t,32),a[0]&=248,a[31]&=127,a[31]|=64;var y=e+64;for(o=0;o<e;o++)r[64+o]=n[o];for(o=0;o<32;o++)r[32+o]=a[32+o];for(wr(u,r.subarray(32),e+32),Ar(u),vr(w,u),sr(r,w),o=32;o<64;o++)r[o]=t[o];for(wr(f,r,e+64),Ar(f),o=0;o<64;o++)c[o]=0;for(o=0;o<32;o++)c[o]=u[o];for(o=0;o<32;o++)for(i=0;i<32;i++)c[o+i]+=f[o]*a[i];return pr(r.subarray(32),c),y}function Ur(r,n,e,t){var o,i=new Uint8Array(32),a=new Uint8Array(64),f=[v(),v(),v(),v()],u=[v(),v(),v(),v()];if(e<64)return-1;if(function(r,n){var e=v(),t=v(),o=v(),i=v(),a=v(),f=v(),u=v();if(O(r[2],w),D(r[1],n),j(o,r[1]),X(i,o,y),V(o,o,r[2]),I(i,r[2],i),j(a,i),j(f,a),X(u,f,a),X(e,u,o),X(e,e,i),J(e,e),X(e,e,o),X(e,e,i),X(e,e,i),X(r[0],e,i),j(t,r[0]),X(t,t,i),G(t,o)&&X(r[0],r[0],s),j(t,r[0]),X(t,t,i),G(t,o))return 1;q(r[0])===n[31]>>7&&V(r[0],c,r[0]),X(r[3],r[0],r[1])}(u,t))return-1;for(o=0;o<e;o++)r[o]=n[o];for(o=0;o<32;o++)r[o+32]=t[o];if(wr(a,r,e),Ar(a),hr(f,u,a),vr(u,n.subarray(32)),yr(f,u),sr(i,f),e-=64,_(n,0,i,0)){for(o=0;o<e;o++)r[o]=0;return-1}for(o=0;o<e;o++)r[o]=n[o+64];return e}function Er(r,n){if(32!==r.length)throw new Error("bad key size");if(24!==n.length)throw new Error("bad nonce size")}function xr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function dr(r){for(var n=0;n<r.length;n++)r[n]=0}i.lowlevel={crypto_core_hsalsa20:x,crypto_stream_xor:T,crypto_stream:L,crypto_stream_salsa20_xor:K,crypto_stream_salsa20:Y,crypto_onetimeauth:R,crypto_onetimeauth_verify:P,crypto_verify_16:A,crypto_verify_32:_,crypto_secretbox:M,crypto_secretbox_open:N,crypto_scalarmult:Q,crypto_scalarmult_base:W,crypto_box_beforenm:rr,crypto_box_afternm:nr,crypto_box:function(r,n,e,t,o,i){var a=new Uint8Array(32);return rr(a,o,i),nr(r,n,e,t,a)},crypto_box_open:function(r,n,e,t,o,i){var a=new Uint8Array(32);return rr(a,o,i),er(r,n,e,t,a)},crypto_box_keypair:$,crypto_hash:wr,crypto_sign:_r,crypto_sign_keypair:gr,crypto_sign_open:Ur,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:y,L:br,pack25519:Z,unpack25519:D,M:X,A:I,S:j,Z:V,pow2523:J,add:yr,set25519:O,modL:pr,scalarmult:hr,scalarbase:vr},i.randomBytes=function(r){var n=new Uint8Array(r);return a(n,r),n},i.secretbox=function(r,n,e){xr(r,n,e),Er(e,n);for(var t=new Uint8Array(32+r.length),o=new Uint8Array(t.length),i=0;i<r.length;i++)t[i+32]=r[i];return M(o,t,t.length,n,e),o.subarray(16)},i.secretbox.open=function(r,n,e){xr(r,n,e),Er(e,n);for(var t=new Uint8Array(16+r.length),o=new Uint8Array(t.length),i=0;i<r.length;i++)t[i+16]=r[i];return t.length<32||0!==N(o,t,t.length,n,e)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,n){if(xr(r,n),32!==r.length)throw new Error("bad n size");if(32!==n.length)throw new Error("bad p size");var e=new Uint8Array(32);return Q(e,r,n),e},i.scalarMult.base=function(r){if(xr(r),32!==r.length)throw new Error("bad n size");var n=new Uint8Array(32);return W(n,r),n},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,n,e,t){var o=i.box.before(e,t);return i.secretbox(r,n,o)},i.box.before=function(r,n){xr(r,n),function(r,n){if(32!==r.length)throw new Error("bad public key size");if(32!==n.length)throw new Error("bad secret key size")}(r,n);var e=new Uint8Array(32);return rr(e,r,n),e},i.box.after=i.secretbox,i.box.open=function(r,n,e,t){var o=i.box.before(e,t);return i.secretbox.open(r,n,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),n=new Uint8Array(32);return $(r,n),{publicKey:r,secretKey:n}},i.box.keyPair.fromSecretKey=function(r){if(xr(r),32!==r.length)throw new Error("bad secret key size");var n=new Uint8Array(32);return W(n,r),{publicKey:n,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,n){if(xr(r,n),64!==n.length)throw new Error("bad secret key size");var e=new Uint8Array(64+r.length);return _r(e,r,r.length,n),e},i.sign.open=function(r,n){if(xr(r,n),32!==n.length)throw new Error("bad public key size");var e=new Uint8Array(r.length),t=Ur(e,r,r.length,n);if(t<0)return null;for(var o=new Uint8Array(t),i=0;i<o.length;i++)o[i]=e[i];return o},i.sign.detached=function(r,n){for(var e=i.sign(r,n),t=new Uint8Array(64),o=0;o<t.length;o++)t[o]=e[o];return t},i.sign.detached.verify=function(r,n,e){if(xr(r,n,e),64!==n.length)throw new Error("bad signature size");if(32!==e.length)throw new Error("bad public key size");var t,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(t=0;t<64;t++)o[t]=n[t];for(t=0;t<r.length;t++)o[t+64]=r[t];return 0<=Ur(i,o,o.length,e)},i.sign.keyPair=function(){var r=new Uint8Array(32),n=new Uint8Array(64);return gr(r,n),{publicKey:r,secretKey:n}},i.sign.keyPair.fromSecretKey=function(r){if(xr(r),64!==r.length)throw new Error("bad secret key size");for(var n=new Uint8Array(32),e=0;e<n.length;e++)n[e]=r[32+e];return{publicKey:n,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(xr(r),32!==r.length)throw new Error("bad seed size");for(var n=new Uint8Array(32),e=new Uint8Array(64),t=0;t<32;t++)e[t]=r[t];return gr(n,e,!0),{publicKey:n,secretKey:e}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){xr(r);var n=new Uint8Array(64);return wr(n,r,r.length),n},i.hash.hashLength=64,i.verify=function(r,n){return xr(r,n),0!==r.length&&0!==n.length&&(r.length===n.length&&0===u(r,0,n,0,r.length))},i.setPRNG=function(r){a=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,n){var e,t=new Uint8Array(n);for(e=0;e<n;e+=65536)o.getRandomValues(t.subarray(e,e+Math.min(n-e,65536)));for(e=0;e<n;e++)r[e]=t[e];dr(t)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,n){var e,t=o.randomBytes(n);for(e=0;e<n;e++)r[e]=t[e];dr(t)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
+</script>
+<script>
+var PRODUCT="JINXI";
+var BUILTIN_URL="https://juuesxlqumcnlrlscnyz.supabase.co";
+var BUILTIN_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1dWVzeGxxdW1jbmxybHNjbnl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwNDc4ODIsImV4cCI6MjEwOTYyMzg4Mn0.q2OHxAAaCeza3n6NWuzyBV4S5dV0Ji-VST9D6E1GjOY";
+var LS={token:"titan_sb_token",email:"titan_sb_email",seed:"titan_sign_seed"};
+function get(k){return localStorage.getItem(k)||"";}
+function set(k,v){localStorage.setItem(k,v);}
+function cfg(){return {url:BUILTIN_URL.replace(/\/+$/,""),anon:BUILTIN_ANON,token:get(LS.token)};}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function toast(msg,type){var t=document.getElementById("toast");t.textContent=msg;t.className="toast "+(type||"");t.style.display="block";clearTimeout(t._t);t._t=setTimeout(function(){t.style.display="none";},4200);}
+
+/* ---------- 编码工具 ---------- */
+function hexToBytes(h){h=h.trim();var a=new Uint8Array(h.length/2);for(var i=0;i<a.length;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;}
+function b64url(bytes){var s="",A="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";var b=0,v=0;for(var i=0;i<bytes.length;i++){v=(v<<8)|bytes[i];b+=8;while(b>=6){s+=A[(v>>>(b-6))&63];b-=6;}}if(b>0)s+=A[(v<<(6-b))&63];return s;}
+function stableStringify(o){
+  if(o===null||typeof o!=="object")return JSON.stringify(o);
+  if(Array.isArray(o))return "["+o.map(stableStringify).join(",")+"]";
+  var keys=Object.keys(o).sort();return "{"+keys.map(function(k){return JSON.stringify(k)+":"+stableStringify(o[k]);}).join(",")+"}";
+}
+function uuid(){if(crypto.randomUUID)return crypto.randomUUID();var b=crypto.getRandomValues(new Uint8Array(16));b[6]=b[6]&0x3f|0x40;b[8]=b[8]&0x3f|0x80;var h=[];for(var i=0;i<16;i++)h.push(b[i].toString(16).padStart(2,"0"));return h.slice(0,4).join("")+"-"+h.slice(4,6).join("")+"-"+h.slice(6,8).join("")+"-"+h.slice(8,10).join("")+"-"+h.slice(10,16).join("");}
+function parseJwt(t){try{return JSON.parse(decodeURIComponent(escape(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))));}catch(e){return {};}}
+
+/* ---------- HTTP ---------- */
+function api(path,opt){opt=opt||{};var c=cfg();opt.headers=opt.headers||{};opt.headers.apikey=c.anon;if(c.token)opt.headers.Authorization="Bearer "+c.token;return fetch(c.url+path,opt).then(function(r){if(r.status===401){doLogout();throw new Error("登录已失效，请重新登录");}return r.text().then(function(t){var d=t?JSON.parse(t):null;if(!r.ok)throw new Error((d&&(d.message||d.error)||("请求失败 "+r.status)));return d;});});}
+function restGet(table,query){return api("/rest/v1/"+table+(query?"?"+query:""));}
+function rpc(name,body){return api("/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});}
+
+/* ---------- 登录 / 角色 ---------- */
+var ME={id:"",role:"dealer",display_name:"",status:"active"};
+var curPage="devices";
+function doLogin(){
+  var email=document.getElementById("liEmail").value.trim(),pass=document.getElementById("liPass").value;
+  api("/auth/v1/token?grant_type=password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pass})})
+  .then(function(d){set(LS.token,d.access_token);set(LS.email,email);enterApp();})
+  .catch(function(e){toast(e.message,"err");});
+}
+function doLogout(){localStorage.removeItem(LS.token);document.getElementById("app").style.display="none";document.getElementById("loginWrap").style.display="block";}
+function enterApp(){
+  document.getElementById("loginWrap").style.display="none";document.getElementById("app").style.display="flex";
+  loadMe();
+}
+function loadMe(){
+  var uid=parseJwt(cfg().token).sub;
+  restGet("profiles","id=eq."+uid+"&select=id,role,display_name,status").then(function(rows){
+    if(!rows.length){toast("未找到账号档案","err");doLogout();return;}
+    ME=rows[0];
+    if(ME.status==="disabled"){toast("账号已被停用，请联系上级","err");doLogout();return;}
+    document.getElementById("whoEmail").textContent=ME.display_name+"（"+(ME.role==="admin"?"管理员":"代理")+"）";
+    applyRole();
+  }).catch(function(e){toast(e.message,"err");});
+}
+function applyRole(){
+  var isAdmin=ME.role==="admin";
+  Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
+    b.style.display=(b.dataset.admin==="1"&&!isAdmin)?"none":"";
+  });
+  var btn=document.querySelector('[data-page="'+curPage+'"]');
+  if(!btn||btn.style.display==="none"){curPage="devices";}
+  showPage(curPage);
+}
+
+/* ---------- 签名 ---------- */
+function buildSigned(command){
+  var seed=get(LS.seed);if(!seed)throw new Error("请先在设置中填入 Ed25519 签名私钥");
+  var idem=uuid(),payload={};
+  var canon=[PRODUCT,command,idem,stableStringify(payload)].join("|");
+  var kp=nacl.sign.keyPair.fromSeed(hexToBytes(seed));
+  var sig=nacl.sign.detached(new TextEncoder().encode(canon),kp.secretKey);
+  return {p_command:command,p_payload:payload,p_idempotency_key:idem,p_signature:b64url(sig)};
+}
+function issueSigned(deviceId,command){
+  var s;try{s=buildSigned(command);}catch(e){toast(e.message,"err");return Promise.reject(e);}
+  s.p_device_id=deviceId;
+  return rpc("fn_admin_issue_command",s).then(function(){toast("已下发签名指令："+command,"ok");showPage(curPage);}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 通用管控 ---------- */
+function setStatus(id,status){rpc("fn_admin_set_device_status",{p_device_id:id,p_status:status}).then(function(){toast("状态已更新","ok");showPage(curPage);}).catch(function(e){toast(e.message,"err");});}
+function bulk(status){
+  var ids=Array.prototype.slice.call(document.querySelectorAll(".devck:checked")).map(function(c){return c.value;});
+  if(!ids.length){toast("请先勾选设备","err");return;}
+  rpc("fn_admin_bulk_set_status",{p_device_ids:ids,p_status:status}).then(function(d){toast("批量操作完成，影响 "+(d.affected||0)+" 台","ok");showPage(curPage);}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 工具 ---------- */
+var TITLES={dashboard:"数据报表",devices:"设备监控",security:"安全事件",codes:"卡密管理",customers:"客户管理",dealers:"经销商管理",audit:"审计日志",settings:"设置"};
+document.getElementById("nav").addEventListener("click",function(e){if(e.target.dataset.page){curPage=e.target.dataset.page;showPage(curPage);}});
+function navOn(p){Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){b.className=b.dataset.page===p?"on":"";});document.getElementById("pageTitle").textContent=TITLES[p];}
+function fmtDur(sec){sec=parseInt(sec||0);var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+"时"+m+"分";}
+function fmtTime(t){if(!t)return "-";return new Date(t).toLocaleString("zh-CN",{hour12:false});}
+
+/* ---------- 数据报表（admin） ---------- */
+function pageDashboard(){
+  rpc("fn_admin_stats",{}).then(function(s){
+    var cards=[["设备总数",s.devices],["在线设备",s.online],["正常",s.active],["已停用",s.stopped],["已冻结",s.frozen],
+      ["客户数",s.customers],["代理数",s.dealers],["未用卡密",s.unused_codes],["已用卡密",s.used_codes],
+      ["近7天严重事件",s.critical_events],["累计使用时长",fmtDur(s.usage_seconds)]];
+    var h='<div class="stat-grid">'+cards.map(function(c){return '<div class="stat-card"><div class="lbl">'+c[0]+'</div><div class="num">'+c[1]+'</div></div>';}).join("")+'</div>';
+    var vers=s.versions||{};var vk=Object.keys(vers);
+    h+='<div class="card"><h3 style="margin:0 0 10px">软件版本分布（版本管理）</h3>';
+    if(vk.length){h+='<table><thead><tr><th>版本号</th><th>设备数</th></tr></thead><tbody>'+vk.map(function(v){return '<tr><td>'+esc(v||"(未知)")+'</td><td>'+vers[v]+'</td></tr>';}).join("")+'</tbody></table>';}
+    else{h+='<p class="muted">暂无设备</p>';}
+    h+='</div>';
+    document.getElementById("pageBody").innerHTML=h;
+  }).catch(function(e){document.getElementById("pageBody").innerHTML='<div class="card muted">加载失败：'+esc(e.message)+'</div>';});
+}
+
+/* ---------- 设备监控 ---------- */
+function pageDevices(){
+  restGet("v_device_status","select=*&order=last_heartbeat.desc.nullslast").then(function(rows){
+    var h='<div class="card" id="assignCard" style="display:none"></div>';
+    h+='<div class="card"><div class="row" style="margin-bottom:12px"><div class="ops">'
+      +'<button class="btn grn sm" onclick="bulk(\'active\')">批量恢复</button>'
+      +'<button class="btn red sm" onclick="bulk(\'stopped\')">批量停用</button>'
+      +'<button class="btn amber sm" onclick="bulk(\'frozen\')">批量冻结</button></div>'
+      +'<div style="flex:1"></div><button class="btn sm" onclick="showPage(\'devices\')">刷新</button></div>'
+      +'<div class="tbl-wrap"><table><thead><tr><th></th><th>机器码</th><th>在线</th><th>状态</th><th>版本</th><th>平台</th><th>授权到期</th><th>使用</th><th>最近心跳</th><th>操作</th></tr></thead><tbody>';
+    rows.forEach(function(r){
+      var on=r.online_state==="online";
+      h+='<tr><td><input type="checkbox" class="devck checkbox" value="'+r.id+'"></td>'
+        +'<td>'+esc(r.machine_code)+'</td>'
+        +'<td><span class="badge '+(on?"b-on":"b-off")+'">'+(on?"在线":"离线")+'</span>'+(on?"":'<div class="muted" style="font-size:11px">'+(r.seconds_since_beat==null?"":Math.round(r.seconds_since_beat/60)+"分钟前")+'</div>')+'</td>'
+        +'<td><span class="badge '+(r.status==="active"?"b-on":r.status==="frozen"?"b-frozen":"b-stopped")+'">'+({active:"正常",stopped:"已停用",frozen:"已冻结"}[r.status]||r.status)+'</span></td>'
+        +'<td>'+esc(r.app_version||"-")+'</td><td>'+esc(r.platform||"-")+'</td>'
+        +'<td>'+fmtTime(r.license_expire)+'</td><td>'+fmtDur(r.usage_seconds)+'</td><td>'+fmtTime(r.last_heartbeat)+'</td>'
+        +'<td><div class="ops">'
+        +'<button class="btn grn sm" onclick="setStatus(\''+r.id+'\',\'active\')">恢复</button>'
+        +'<button class="btn red sm" onclick="setStatus(\''+r.id+'\',\'stopped\')">停用</button>'
+        +'<button class="btn amber sm" onclick="setStatus(\''+r.id+'\',\'frozen\')">冻结</button>'
+        +'<button class="btn sm" onclick="assignStart(\''+r.id+'\')">分配</button>'
+        +'<button class="btn sm" onclick="issueSigned(\''+r.id+'\',\'unbind\')">解绑</button>'
+        +'<button class="btn red sm" onclick="issueSigned(\''+r.id+'\',\'revoke_license\')">撤销</button>'
+        +'</div></td></tr>';
+    });
+    h+='</tbody></table></div><p class="muted mt" style="font-size:12px">停用/恢复/冻结更新服务端状态，设备下次心跳（≤45秒）即锁定；解绑/撤销为 Ed25519 签名指令；分配用于指派负责代理/客户。</p></div>';
+    document.getElementById("pageBody").innerHTML=h;
+    setupAuto();
+  }).catch(function(e){document.getElementById("pageBody").innerHTML='<div class="card muted">加载失败：'+esc(e.message)+'</div>';});
+}
+function assignStart(id){
+  var card=document.getElementById("assignCard");
+  if(ME.role!=="admin"){rpc("fn_admin_assign_device",{p_device_id:id,p_owner_id:ME.id}).then(function(){toast("已认领该设备","ok");}).catch(function(e){toast(e.message,"err");});return;}
+  restGet("profiles","role=eq.dealer&select=id,display_name,status").then(function(dealers){
+    var opts='<option value="">（不指定/待分配）</option>'+dealers.map(function(d){return '<option value="'+d.id+'">'+esc(d.display_name)+(d.status==="disabled"?"(停用)":"")+'</option>';}).join("");
+    card.style.display="block";
+    card.innerHTML='<h3 style="margin:0 0 8px">分配设备</h3><div class="row"><div class="f"><label>负责代理</label><select id="asOwner">'+opts+'</select></div>'
+      +'<div class="f"><button class="btn red" onclick="assignConfirm(\''+id+'\')">确认分配</button></div><div class="f"><button class="btn" onclick="document.getElementById(\'assignCard\').style.display=\'none\'">取消</button></div></div>';
+    card.scrollIntoView();
+  });
+}
+function assignConfirm(id){
+  var owner=document.getElementById("asOwner").value||null;
+  rpc("fn_admin_assign_device",{p_device_id:id,p_owner_id:owner}).then(function(){toast("设备已分配","ok");showPage("devices");}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 安全事件 ---------- */
+function pageSecurity(){
+  restGet("security_events","select=*&order=ts.desc&limit=200").then(function(rows){
+    var h='<div class="card"><div class="tbl-wrap"><table><thead><tr><th>时间</th><th>机器码</th><th>事件</th><th>级别</th><th>详情</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr><td>'+fmtTime(r.ts)+'</td><td>'+esc(r.machine_code)+'</td><td><b>'+esc(r.event_type)+'</b></td><td><span class="badge '+(r.severity==="critical"?"b-crit":r.severity==="warning"?"b-warn":"b-info")+'">'+r.severity+'</span></td><td class="muted" style="font-size:12px">'+esc(stableStringify(r.detail))+'</td></tr>';});
+    h+='</tbody></table></div></div>';document.getElementById("pageBody").innerHTML=h;
+  }).catch(function(e){document.getElementById("pageBody").innerHTML='<div class="card muted">加载失败：'+esc(e.message)+'</div>';});
+}
+
+/* ---------- 卡密 ---------- */
+function pageCodes(){
+  var body='<div class="card"><h3 style="margin:0 0 10px">生成卡密</h3><div class="row">'
+    +'<div class="f"><label>时长（严格四档）</label><select id="cdDays"><option value="7">7 天</option><option value="30">30 天</option><option value="60">60 天</option><option value="90">90 天</option></select></div>'
+    +'<div class="f"><label>数量（1~200）</label><input id="cdCount" type="number" value="1" min="1" max="200"></div>'
+    +'<div class="f" style="flex:2"><label>备注</label><input id="cdNote" placeholder="可选"></div>'
+    +'<div class="f"><button class="btn red" style="width:100%" onclick="genCodes()">生成</button></div></div><div id="newCodes" class="mt"></div></div>';
+  document.getElementById("pageBody").innerHTML=body;
+  restGet("license_codes","select=*&order=created_at.desc&limit=200").then(function(rows){
+    var h='<div class="card"><h3 style="margin:0 0 10px">卡密列表</h3><div class="tbl-wrap"><table><thead><tr><th>卡密</th><th>天数</th><th>状态</th><th>备注</th><th>生成时间</th><th>使用时间</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr><td>'+esc(r.code)+'</td><td>'+r.days+' 天</td><td><span class="badge '+(r.status==="unused"?"b-on":r.status==="used"?"b-info":"b-off")+'">'+({unused:"未使用",used:"已使用",disabled:"已停用"}[r.status])+'</span></td><td>'+esc(r.note)+'</td><td>'+fmtTime(r.created_at)+'</td><td>'+fmtTime(r.used_at)+'</td></tr>';});
+    h+='</tbody></table></div></div>';document.getElementById("pageBody").insertAdjacentHTML("beforeend",h);
+  }).catch(function(){});
+}
+function genCodes(){
+  var days=parseInt(document.getElementById("cdDays").value),count=parseInt(document.getElementById("cdCount").value),note=document.getElementById("cdNote").value;
+  rpc("fn_admin_gen_license_codes",{p_days:days,p_count:count,p_note:note}).then(function(d){
+    var codes=d.codes||[];document.getElementById("newCodes").innerHTML='<label>本次生成 '+codes.length+' 个</label><div class="codebox">'+codes.map(esc).join("\n")+'</div>';toast("已生成 "+codes.length+" 个卡密","ok");
+  }).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 客户 ---------- */
+function pageCustomers(){
+  var body='<div class="card"><h3 style="margin:0 0 10px">新增客户</h3><div class="row">'
+    +'<div class="f"><label>客户名称</label><input id="cuName"></div>'
+    +'<div class="f"><label>联系方式</label><input id="cuContact"></div>'
+    +'<div class="f" style="flex:2"><label>备注</label><input id="cuNote"></div>'
+    +'<div class="f"><button class="btn red" style="width:100%" onclick="addCustomer()">添加</button></div></div></div>';
+  document.getElementById("pageBody").innerHTML=body;
+  restGet("customers","select=*&order=created_at.desc").then(function(rows){
+    var h='<div class="card"><h3 style="margin:0 0 10px">客户列表（'+rows.length+'）</h3><div class="tbl-wrap"><table><thead><tr><th>名称</th><th>联系方式</th><th>备注</th><th>创建时间</th><th>操作</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr><td><b>'+esc(r.name)+'</b></td><td>'+esc(r.contact)+'</td><td>'+esc(r.note)+'</td><td>'+fmtTime(r.created_at)+'</td>'
+      +'<td><div class="ops"><button class="btn amber sm" onclick="freezeCustomer(\''+r.id+'\',true)">冻结名下</button>'
+      +'<button class="btn grn sm" onclick="freezeCustomer(\''+r.id+'\',false)">解冻</button></div></td></tr>';});
+    h+='</tbody></table></div></div>';document.getElementById("pageBody").insertAdjacentHTML("beforeend",h);
+  }).catch(function(e){});
+}
+function addCustomer(){
+  var name=document.getElementById("cuName").value.trim();if(!name){toast("请填写客户名称","err");return;}
+  api("/rest/v1/customers",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,contact:document.getElementById("cuContact").value,note:document.getElementById("cuNote").value,owner_id:ME.id})})
+  .then(function(){toast("客户已添加","ok");showPage("customers");}).catch(function(e){toast(e.message,"err");});
+}
+function freezeCustomer(id,freeze){
+  rpc("fn_admin_freeze_customer",{p_customer_id:id,p_freeze:freeze}).then(function(d){toast("已影响 "+(d.affected||0)+" 台设备","ok");showPage("customers");}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 经销商管理（admin） ---------- */
+function pageDealers(){
+  var body='<div class="card"><h3 style="margin:0 0 10px">创建代理后台</h3><div class="row">'
+    +'<div class="f"><label>代理名称</label><input id="dlName" placeholder="如：华东一区"></div>'
+    +'<div class="f"><label>登录邮箱</label><input id="dlEmail" type="email"></div>'
+    +'<div class="f"><label>初始密码（≥6位）</label><input id="dlPass"></div>'
+    +'<div class="f"><button class="btn red" style="width:100%" onclick="createDealer()">生成代理后台</button></div></div>'
+    +'<p class="muted mt" style="font-size:12px">创建后，代理用<b>同一个后台文件</b>、该邮箱密码登录，仅能看到自己名下的客户/设备/卡密；你可在下方监管其数据与状态。</p></div>';
+  document.getElementById("pageBody").innerHTML=body;
+  rpc("fn_admin_list_dealers").then(function(rows){
+    var h='<div class="card"><h3 style="margin:0 0 10px">代理监管（共 '+rows.length+'）</h3><div class="tbl-wrap"><table><thead><tr><th>代理</th><th>邮箱</th><th>状态</th><th>设备(在线)</th><th>客户</th><th>使用时长</th><th>操作</th></tr></thead><tbody>';
+    rows.forEach(function(d){
+      h+='<tr><td><b>'+esc(d.display_name)+'</b></td><td>'+esc(d.email)+'</td>'
+        +'<td><span class="badge '+(d.status==="active"?"b-on":"b-disabled")+'">'+(d.status==="active"?"启用":"已停用")+'</span></td>'
+        +'<td>'+d.devices+'（'+d.online_devices+'）</td><td>'+d.customers+'</td><td>'+fmtDur(d.usage_seconds)+'</td>'
+        +'<td><div class="ops">'
+        +(d.status==="active"?'<button class="btn red sm" onclick="dealerAction(\''+d.id+'\',\'disable\')">停用</button>':'<button class="btn grn sm" onclick="dealerAction(\''+d.id+'\',\'enable\')">启用</button>')
+        +'<button class="btn sm" onclick="dealerReset(\''+d.id+'\')">重置密码</button></div></td></tr>';
+    });
+    h+='</tbody></table></div></div>';document.getElementById("pageBody").insertAdjacentHTML("beforeend",h);
+  }).catch(function(e){});
+}
+function createDealer(){
+  var payload={p_email:document.getElementById("dlEmail").value.trim(),p_password:document.getElementById("dlPass").value,p_display_name:document.getElementById("dlName").value.trim()};
+  rpc("fn_admin_create_dealer",payload).then(function(d){toast("代理后台已创建："+d.email,"ok");showPage("dealers");}).catch(function(e){toast(e.message,"err");});
+}
+function dealerAction(id,act){
+  var status=act==="disable"?"disabled":"active";
+  rpc("fn_admin_update_dealer",{p_id:id,p_status:status}).then(function(){toast("代理状态已更新","ok");showPage("dealers");}).catch(function(e){toast(e.message,"err");});
+}
+function dealerReset(id){
+  var np=prompt("请输入该代理的新密码（≥6位）");if(!np)return;
+  rpc("fn_admin_update_dealer",{p_id:id,p_new_password:np}).then(function(){toast("密码已重置","ok");}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 审计 ---------- */
+function pageAudit(){
+  restGet("audit_log","select=*&order=ts.desc&limit=200").then(function(rows){
+    var h='<div class="card"><div class="tbl-wrap"><table><thead><tr><th>时间</th><th>操作者</th><th>动作</th><th>详情</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr><td>'+fmtTime(r.ts)+'</td><td style="font-size:12px">'+esc(r.actor)+'</td><td>'+esc(r.action)+'</td><td class="muted" style="font-size:12px">'+esc(stableStringify(r.detail))+'</td></tr>';});
+    h+='</tbody></table></div></div>';document.getElementById("pageBody").innerHTML=h;
+  }).catch(function(e){document.getElementById("pageBody").innerHTML='<div class="card muted">加载失败：'+esc(e.message)+'</div>';});
+}
+
+/* ---------- 设置 ---------- */
+function pageSettings(){
+  var h='<div class="card"><label>Ed25519 指令签名私钥（hex，仅存本机浏览器，不写入云端）</label><textarea id="stSeed" rows="2">'+esc(get(LS.seed))+'</textarea>'
+    +'<button class="btn red mt" onclick="set(LS.seed,document.getElementById(\'stSeed\').value.trim());toast(\'签名私钥已保存\',\'ok\')">保存私钥</button>'
+    +'<p class="muted mt" style="font-size:12px">与 PC 签发器、手机注册器同一把；云端数据库不存储私钥。</p></div>';
+  if(ME.role==="admin"){
+    restGet("app_settings","select=*").then(function(rows){
+      var m={};rows.forEach(function(r){m[r.key]=r.value;});
+      var h2='<div class="card"><h3 style="margin:0 0 8px">设备数量限制（防注册码超量）</h3><div class="row">'
+        +'<div class="f"><label>每客户最多设备数</label><input id="setPer" type="number" value="'+esc(m.max_devices_per_customer)+'"></div>'
+        +'<div class="f"><label>全局设备总数上限</label><input id="setGlobal" type="number" value="'+esc(m.max_devices_global)+'"></div>'
+        +'<div class="f"><button class="btn red" onclick="saveLimits()">保存限制</button></div></div></div>';
+      document.getElementById("pageBody").insertAdjacentHTML("beforeend",h2);
+    }).catch(function(){});
+  }
+  document.getElementById("pageBody").innerHTML=h;
+}
+function saveLimits(){
+  var per=document.getElementById("setPer").value,glo=document.getElementById("setGlobal").value;
+  api("/rest/v1/app_settings?key=eq.max_devices_per_customer",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:parseInt(per)})})
+  .then(function(){return api("/rest/v1/app_settings?key=eq.max_devices_global",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({value:parseInt(glo)})});})
+  .then(function(){toast("设备数量限制已保存","ok");}).catch(function(e){toast(e.message,"err");});
+}
+
+var autoTimer=null;
+function setupAuto(){clearInterval(autoTimer);autoTimer=setInterval(function(){if(curPage==="devices"){pageDevices();}},30000);}
+function showPage(p){navOn(p);curPage=p;({dashboard:pageDashboard,devices:pageDevices,security:pageSecurity,codes:pageCodes,customers:pageCustomers,dealers:pageDealers,audit:pageAudit,settings:pageSettings}[p])();}
+
+/* ---------- 启动 ---------- */
+(function(){
+  if(get(LS.token)){enterApp();}
+  else{document.getElementById("loginWrap").style.display="block";}
+})();
+</script>
+</body>
+</html>
