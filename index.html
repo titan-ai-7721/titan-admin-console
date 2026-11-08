@@ -126,7 +126,7 @@ function restGet(table,query){return api("/rest/v1/"+table+(query?"?"+query:""))
 function rpc(name,body){return api("/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})});}
 
 /* ---------- 登录 / 角色 ---------- */
-var ME={id:"",role:"dealer",display_name:"",status:"active"};
+var ME={id:"",role:"dealer",display_name:"",status:"active",can_create_subdealer:false};
 var curPage="devices";
 function doLogin(){
   var email=document.getElementById("liEmail").value.trim(),pass=document.getElementById("liPass").value;
@@ -141,7 +141,7 @@ function enterApp(){
 }
 function loadMe(){
   var uid=parseJwt(cfg().token).sub;
-  restGet("profiles","id=eq."+uid+"&select=id,role,display_name,status").then(function(rows){
+  restGet("profiles","id=eq."+uid+"&select=id,role,display_name,status,can_create_subdealer").then(function(rows){
     if(!rows.length){toast("未找到账号档案","err");doLogout();return;}
     ME=rows[0];
     if(ME.status==="disabled"){toast("账号已被停用，请联系上级","err");doLogout();return;}
@@ -151,8 +151,14 @@ function loadMe(){
 }
 function applyRole(){
   var isAdmin=ME.role==="admin";
+  var canSub=ME.can_create_subdealer===true;
   Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){
-    b.style.display=(b.dataset.admin==="1"&&!isAdmin)?"none":"";
+    var hidden=false;
+    if(b.dataset.admin==="1"&&!isAdmin){
+      // 经销商管理：仅被授权“可建下级”的代理可见，其余 admin 页仍隐藏
+      hidden=!(b.dataset.page==="dealers"&&canSub);
+    }
+    b.style.display=hidden?"none":"";
   });
   var btn=document.querySelector('[data-page="'+curPage+'"]');
   if(!btn||btn.style.display==="none"){curPage="devices";}
@@ -160,9 +166,9 @@ function applyRole(){
 }
 
 /* ---------- 签名 ---------- */
-function buildSigned(command){
+function buildSigned(command,pl){
   var seed=get(LS.seed);if(!seed)throw new Error("请先在设置中填入 Ed25519 签名私钥");
-  var idem=uuid(),payload={};
+  var idem=uuid(),payload=pl||{};
   var canon=[PRODUCT,command,idem,stableStringify(payload)].join("|");
   var kp=nacl.sign.keyPair.fromSeed(hexToBytes(seed));
   var sig=nacl.sign.detached(new TextEncoder().encode(canon),kp.secretKey);
@@ -185,7 +191,7 @@ function bulk(status){
 /* ---------- 工具 ---------- */
 var TITLES={dashboard:"数据报表",devices:"设备监控",security:"安全事件",codes:"卡密管理",customers:"客户管理",dealers:"经销商管理",audit:"审计日志",settings:"设置"};
 document.getElementById("nav").addEventListener("click",function(e){if(e.target.dataset.page){curPage=e.target.dataset.page;showPage(curPage);}});
-function navOn(p){Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){b.className=b.dataset.page===p?"on":"";});document.getElementById("pageTitle").textContent=TITLES[p];}
+function navOn(p){Array.prototype.forEach.call(document.querySelectorAll("#nav button"),function(b){b.className=b.dataset.page===p?"on":"";});var t=TITLES[p];if(p==="dealers"&&ME.role!=="admin"){t="下级代理";}document.getElementById("pageTitle").textContent=t;}
 function fmtDur(sec){sec=parseInt(sec||0);var h=Math.floor(sec/3600),m=Math.floor(sec%3600/60);return h+"时"+m+"分";}
 function fmtTime(t){if(!t)return "-";return new Date(t).toLocaleString("zh-CN",{hour12:false});}
 
@@ -208,31 +214,36 @@ function pageDashboard(){
 /* ---------- 设备监控 ---------- */
 function pageDevices(){
   restGet("v_device_status","select=*&order=last_heartbeat.desc.nullslast").then(function(rows){
-    var h='<div class="card" id="assignCard" style="display:none"></div>';
+    var h='<div class="card" id="assignCard" style="display:none"></div><div class="card" id="adjustCard" style="display:none"></div>';
     h+='<div class="card"><div class="row" style="margin-bottom:12px"><div class="ops">'
       +'<button class="btn grn sm" onclick="bulk(\'active\')">批量恢复</button>'
       +'<button class="btn red sm" onclick="bulk(\'stopped\')">批量停用</button>'
       +'<button class="btn amber sm" onclick="bulk(\'frozen\')">批量冻结</button></div>'
       +'<div style="flex:1"></div><button class="btn sm" onclick="showPage(\'devices\')">刷新</button></div>'
-      +'<div class="tbl-wrap"><table><thead><tr><th></th><th>机器码</th><th>在线</th><th>状态</th><th>版本</th><th>平台</th><th>授权到期</th><th>使用</th><th>最近心跳</th><th>操作</th></tr></thead><tbody>';
+      +'<div class="tbl-wrap"><table><thead><tr><th></th><th>机器码</th><th>在线</th><th>状态</th><th>版本</th><th>平台</th><th>授权到期</th><th>使用</th><th>算力余额(元)</th><th>剩余次数</th><th>最近心跳</th><th>操作</th></tr></thead><tbody>';
     rows.forEach(function(r){
       var on=r.online_state==="online";
+      var snap=r.snapshot||{};var bal=snap.balance;var rem=snap.remaining_times;
       h+='<tr><td><input type="checkbox" class="devck checkbox" value="'+r.id+'"></td>'
         +'<td>'+esc(r.machine_code)+'</td>'
         +'<td><span class="badge '+(on?"b-on":"b-off")+'">'+(on?"在线":"离线")+'</span>'+(on?"":'<div class="muted" style="font-size:11px">'+(r.seconds_since_beat==null?"":Math.round(r.seconds_since_beat/60)+"分钟前")+'</div>')+'</td>'
         +'<td><span class="badge '+(r.status==="active"?"b-on":r.status==="frozen"?"b-frozen":"b-stopped")+'">'+({active:"正常",stopped:"已停用",frozen:"已冻结"}[r.status]||r.status)+'</span></td>'
         +'<td>'+esc(r.app_version||"-")+'</td><td>'+esc(r.platform||"-")+'</td>'
-        +'<td>'+fmtTime(r.license_expire)+'</td><td>'+fmtDur(r.usage_seconds)+'</td><td>'+fmtTime(r.last_heartbeat)+'</td>'
+        +'<td>'+fmtTime(r.license_expire)+'</td><td>'+fmtDur(r.usage_seconds)+'</td>'
+        +'<td>'+(bal==null?'<span class="muted">-</span>':Number(bal).toFixed(2))+'</td>'
+        +'<td>'+(rem==null?'<span class="muted">-</span>':rem)+'</td>'
+        +'<td>'+fmtTime(r.last_heartbeat)+'</td>'
         +'<td><div class="ops">'
         +'<button class="btn grn sm" onclick="setStatus(\''+r.id+'\',\'active\')">恢复</button>'
         +'<button class="btn red sm" onclick="setStatus(\''+r.id+'\',\'stopped\')">停用</button>'
         +'<button class="btn amber sm" onclick="setStatus(\''+r.id+'\',\'frozen\')">冻结</button>'
+        +'<button class="btn sm" onclick="adjustStart(\''+r.id+'\','+(bal==null?'null':bal)+')">调算力</button>'
         +'<button class="btn sm" onclick="assignStart(\''+r.id+'\')">分配</button>'
         +'<button class="btn sm" onclick="issueSigned(\''+r.id+'\',\'unbind\')">解绑</button>'
         +'<button class="btn red sm" onclick="issueSigned(\''+r.id+'\',\'revoke_license\')">撤销</button>'
         +'</div></td></tr>';
     });
-    h+='</tbody></table></div><p class="muted mt" style="font-size:12px">停用/恢复/冻结更新服务端状态，设备下次心跳（≤45秒）即锁定；解绑/撤销为 Ed25519 签名指令；分配用于指派负责代理/客户。</p></div>';
+    h+='</tbody></table></div><p class="muted mt" style="font-size:12px">停用/恢复/冻结更新服务端状态，设备下次心跳（≤45秒）即锁定；算力余额/剩余次数取自设备心跳快照，"调算力"为 Ed25519 签名指令（add/set，不允许负余额、幂等）；解绑/撤销同为签名指令；分配用于指派负责代理/客户。</p></div>';
     document.getElementById("pageBody").innerHTML=h;
     setupAuto();
   }).catch(function(e){document.getElementById("pageBody").innerHTML='<div class="card muted">加载失败：'+esc(e.message)+'</div>';});
@@ -251,6 +262,34 @@ function assignStart(id){
 function assignConfirm(id){
   var owner=document.getElementById("asOwner").value||null;
   rpc("fn_admin_assign_device",{p_device_id:id,p_owner_id:owner}).then(function(){toast("设备已分配","ok");showPage("devices");}).catch(function(e){toast(e.message,"err");});
+}
+
+/* ---------- 算力远程调整（Ed25519 签名 adjust_balance） ---------- */
+function adjustStart(id,curBal){
+  var card=document.getElementById("adjustCard");
+  card.innerHTML='<h3 style="margin:0 0 8px">调整算力余额'+(curBal!=null?'（当前 '+Number(curBal).toFixed(2)+' 元）':'')+'</h3>'
+    +'<div class="row">'
+    +'<div class="f"><label>调整方式</label><select id="abMode"><option value="add">增量 add（正数增加 / 负数扣减）</option><option value="set">直接设值 set</option></select></div>'
+    +'<div class="f"><label>金额（元）</label><input id="abAmount" type="number" step="0.0001"></div>'
+    +'<div class="f" style="flex:2"><label>原因 / 备注</label><input id="abReason" placeholder="可选"></div></div>'
+    +'<div class="row mt"><div class="f"><button class="btn red" onclick="issueAdjust(\''+id+'\')">确认下发（签名）</button></div>'
+    +'<div class="f"><button class="btn" onclick="document.getElementById(\'adjustCard\').style.display=\'none\'">取消</button></div></div>';
+  card.style.display="block";
+  card.scrollIntoView();
+}
+function issueAdjust(deviceId){
+  var mode=document.getElementById("abMode").value;
+  var amount=parseFloat(document.getElementById("abAmount").value);
+  var reason=document.getElementById("abReason").value.trim();
+  if(!isFinite(amount)){toast("请输入正确的金额（元）","err");return;}
+  if(mode==="set"&&amount<0){toast("直接设值不能为负（客户端会截断到 0）","err");return;}
+  var pl={mode:mode,amount:amount,reason:reason};
+  var s;try{s=buildSigned("adjust_balance",pl);}catch(e){toast(e.message,"err");return;}
+  s.p_device_id=deviceId;
+  rpc("fn_admin_issue_command",s).then(function(){
+    toast("算力调整指令已下发，设备下次心跳（≤45秒）验签执行并回执","ok");
+    document.getElementById("adjustCard").style.display="none";showPage(curPage);
+  }).catch(function(e){toast(e.message,"err");});
 }
 
 /* ---------- 安全事件 ---------- */
@@ -308,24 +347,37 @@ function freezeCustomer(id,freeze){
   rpc("fn_admin_freeze_customer",{p_customer_id:id,p_freeze:freeze}).then(function(d){toast("已影响 "+(d.affected||0)+" 台设备","ok");showPage("customers");}).catch(function(e){toast(e.message,"err");});
 }
 
-/* ---------- 经销商管理（admin） ---------- */
+/* ---------- 经销商管理（admin）/ 下级代理（被授权 dealer） ---------- */
 function pageDealers(){
-  var body='<div class="card"><h3 style="margin:0 0 10px">创建代理后台</h3><div class="row">'
+  var isAdmin=ME.role==="admin";
+  var createTitle=isAdmin?"创建顶级代理后台":"创建下级代理后台";
+  var hint=isAdmin
+    ?'你创建的代理为顶级（无上级）。代理用<b>同一个后台文件</b>、该邮箱密码登录；默认不能建下级，需你在下方"授权建下级"后才会出现该入口。'
+    :'你已被管理员授权，可生成自己的<b>直属下级</b>；下级仅能看到其代理树（自己及再下级）名下数据，且默认不能继续建号。';
+  var body='<div class="card"><h3 style="margin:0 0 10px">'+createTitle+'</h3><div class="row">'
     +'<div class="f"><label>代理名称</label><input id="dlName" placeholder="如：华东一区"></div>'
     +'<div class="f"><label>登录邮箱</label><input id="dlEmail" type="email"></div>'
     +'<div class="f"><label>初始密码（≥6位）</label><input id="dlPass"></div>'
     +'<div class="f"><button class="btn red" style="width:100%" onclick="createDealer()">生成代理后台</button></div></div>'
-    +'<p class="muted mt" style="font-size:12px">创建后，代理用<b>同一个后台文件</b>、该邮箱密码登录，仅能看到自己名下的客户/设备/卡密；你可在下方监管其数据与状态。</p></div>';
+    +'<p class="muted mt" style="font-size:12px">'+hint+'</p></div>';
   document.getElementById("pageBody").innerHTML=body;
   rpc("fn_admin_list_dealers").then(function(rows){
-    var h='<div class="card"><h3 style="margin:0 0 10px">代理监管（共 '+rows.length+'）</h3><div class="tbl-wrap"><table><thead><tr><th>代理</th><th>邮箱</th><th>状态</th><th>设备(在线)</th><th>客户</th><th>使用时长</th><th>操作</th></tr></thead><tbody>';
+    var h='<div class="card"><h3 style="margin:0 0 10px">代理监管（共 '+rows.length+'）</h3><div class="tbl-wrap"><table><thead><tr><th>代理</th><th>邮箱</th><th>状态</th><th>上级</th><th>可建下级</th><th>设备(在线)</th><th>客户</th><th>使用时长</th><th>操作</th></tr></thead><tbody>';
     rows.forEach(function(d){
+      var parentTxt;
+      if(!d.parent_id){parentTxt=isAdmin?'顶级':'-';}
+      else if(d.parent_id===ME.id){parentTxt='直属下级';}
+      else{parentTxt=esc(String(d.parent_id).slice(0,8));}
       h+='<tr><td><b>'+esc(d.display_name)+'</b></td><td>'+esc(d.email)+'</td>'
         +'<td><span class="badge '+(d.status==="active"?"b-on":"b-disabled")+'">'+(d.status==="active"?"启用":"已停用")+'</span></td>'
+        +'<td>'+parentTxt+'</td>'
+        +'<td><span class="badge '+(d.can_create_subdealer?"b-on":"b-off")+'">'+(d.can_create_subdealer?"已授权":"未授权")+'</span></td>'
         +'<td>'+d.devices+'（'+d.online_devices+'）</td><td>'+d.customers+'</td><td>'+fmtDur(d.usage_seconds)+'</td>'
         +'<td><div class="ops">'
         +(d.status==="active"?'<button class="btn red sm" onclick="dealerAction(\''+d.id+'\',\'disable\')">停用</button>':'<button class="btn grn sm" onclick="dealerAction(\''+d.id+'\',\'enable\')">启用</button>')
-        +'<button class="btn sm" onclick="dealerReset(\''+d.id+'\')">重置密码</button></div></td></tr>';
+        +'<button class="btn sm" onclick="dealerReset(\''+d.id+'\')">重置密码</button>'
+        +(isAdmin?'<button class="btn amber sm" onclick="setDealerPerm(\''+d.id+'\','+(d.can_create_subdealer?'false':'true')+')">'+(d.can_create_subdealer?'取消授权':'授权建下级')+'</button>':'')
+        +'</div></td></tr>';
     });
     h+='</tbody></table></div></div>';document.getElementById("pageBody").insertAdjacentHTML("beforeend",h);
   }).catch(function(e){});
@@ -341,6 +393,12 @@ function dealerAction(id,act){
 function dealerReset(id){
   var np=prompt("请输入该代理的新密码（≥6位）");if(!np)return;
   rpc("fn_admin_update_dealer",{p_id:id,p_new_password:np}).then(function(){toast("密码已重置","ok");}).catch(function(e){toast(e.message,"err");});
+}
+function setDealerPerm(id,allowed){
+  var flag=(allowed===true||allowed==="true");
+  rpc("fn_admin_set_dealer_permission",{p_id:id,p_allowed:flag}).then(function(){
+    toast(flag?"已授权该代理生成下级":"已取消该代理的建号授权","ok");showPage("dealers");
+  }).catch(function(e){toast(e.message,"err");});
 }
 
 /* ---------- 审计 ---------- */
